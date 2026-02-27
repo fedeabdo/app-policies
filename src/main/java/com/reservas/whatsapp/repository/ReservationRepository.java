@@ -10,12 +10,14 @@ import java.util.Optional;
 
 @Repository
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
-    
+
     List<Reservation> findByPhoneNumber(String phoneNumber);
-    
+
+    List<Reservation> findByPhoneNumberAndStatus(String phoneNumber, Reservation.ReservationStatus status);
+
     List<Reservation> findByReservationDateTimeBetween(LocalDateTime start, LocalDateTime end);
-    
+
     Optional<Reservation> findByGoogleCalendarEventId(String eventId);
-    
+
     List<Reservation> findByStatus(Reservation.ReservationStatus status);
 }

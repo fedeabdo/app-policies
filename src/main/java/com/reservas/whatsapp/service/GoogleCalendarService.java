@@ -170,6 +170,23 @@ public class GoogleCalendarService {
     }
     
     /**
+     * Obtiene todos los eventos del calendario (para sincronización)
+     */
+    public List<Event> getAllEvents() {
+        try {
+            Events events = calendar.events().list(calendarId)
+                    .setOrderBy("startTime")
+                    .setSingleEvents(true)
+                    .execute();
+
+            return events.getItems() != null ? events.getItems() : new ArrayList<>();
+        } catch (IOException e) {
+            log.error("Error al obtener todos los eventos", e);
+            return new ArrayList<>();
+        }
+    }
+
+    /**
      * Formatea una fecha para mostrar al usuario
      */
     public String formatDate(LocalDate date) {

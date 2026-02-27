@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/webhook")
 @RequiredArgsConstructor
@@ -136,5 +138,40 @@ public class WhatsAppWebhookController {
     @GetMapping("/health")
     public ResponseEntity<?> health() {
         return ResponseEntity.ok().body("{\"status\":\"ok\"}");
+    }
+
+    /**
+     * Obtiene la última respuesta del bot para un número de teléfono
+     * Usado para testing desde cliente CLI
+     */
+    @GetMapping("/response/{phoneNumber}")
+    public ResponseEntity<?> getLastResponse(@PathVariable String phoneNumber) {
+        String response = conversationService.getLastResponse(phoneNumber);
+        return ResponseEntity.ok().body(response);
+    }
+
+    /**
+     * Sincroniza todos los eventos de Google Calendar hacia la tabla de reservas
+     * POST /webhook/sync-calendar
+     *
+     * Respuesta:
+     * {
+     *   "added": 5,
+     *   "skipped": 3,
+     *   "errors": 0,
+     *   "message": "✅ Sincronización completada:\n- 5 nuevas reservas importadas\n- 3 reservas ya existentes\n- 0 errores"
+     * }
+     */
+    @PostMapping("/sync-calendar")
+    public ResponseEntity<?> syncCalendarReservations() {
+        log.info("Sincronización de calendario solicitada");
+        ConversationService.SyncResult result = conversationService.syncReservationsFromCalendar();
+
+        return ResponseEntity.ok().body(Map.of(
+                "added", result.added,
+                "skipped", result.skipped,
+                "errors", result.errors,
+                "message", result.message
+        ));
     }
 }

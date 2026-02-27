@@ -1,9 +1,3 @@
--- Crear base de datos
-CREATE DATABASE whatsapp_reservas;
-
--- Conectar a la base de datos
-\c whatsapp_reservas;
-
 -- Las tablas se crearán automáticamente con JPA/Hibernate
 -- Este script es opcional, solo para referencia
 

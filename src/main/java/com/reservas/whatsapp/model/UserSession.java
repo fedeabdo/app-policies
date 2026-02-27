@@ -34,30 +34,38 @@ public class UserSession {
     
     @Column(columnDefinition = "TEXT")
     private String availableSlots;
-    
+
+    // Datos para cancelación de reservas
+    @Column(columnDefinition = "TEXT")
+    private String reservationsToCancel;
+
+    private Long selectedReservationId;
+
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-    
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
-    
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
-    
+
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
-    
+
     public enum ConversationState {
         INICIO,
         ESPERANDO_FECHA,
         ESPERANDO_HORARIO,
         ESPERANDO_NOMBRE,
-        ESPERANDO_CONFIRMACION
+        ESPERANDO_CONFIRMACION,
+        MOSTRANDO_RESERVAS,
+        ESPERANDO_CONFIRMACION_CANCELACION
     }
 }
