@@ -22,9 +22,11 @@ Bot automatizado para gestionar reservas mediante WhatsApp Business API, integra
 
 ## 📖 Documentación
 
-1. **[SETUP.md](SETUP.md)** - Instalación y configuración inicial
-2. **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Solución de problemas
-3. **[DEPLOY.md](DEPLOY.md)** - Pasar a producción
+1. **[docs/SETUP.md](SETUP.md)** - Instalación y configuración inicial
+2. **[docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Solución de problemas
+3. **[docs/DEPLOY.md](DEPLOY.md)** - Pasar a producción
+4. **[docs/SYNC_RESERVAS.md](SYNC_RESERVAS.md)** - Sincronización con Google Calendar
+5. **[docs/QUICKSTART_WSL.md](QUICKSTART_WSL.md)** - Guía rápida para desarrollo en WSL
 
 ## ⚡ Quick Start
 
@@ -71,11 +73,7 @@ chmod +x test-webhook.sh
 │   └── credentials.json  (agregar después)
 ├── docker-compose.yml
 ├── pom.xml
-├── .env                  (crear con tus datos)
-├── SETUP.md              # Documentación de instalación
-├── TROUBLESHOOTING.md    # Solución de problemas
-├── DEPLOY.md             # Guía de producción
-└── test-webhook.sh       # Script de prueba
+└── .env                  (crear con tus datos)
 ```
 
 ## 🔒 Seguridad
