@@ -1,6 +1,7 @@
 # Credenciales y tokens
 credentials.json
 token.json
+tokens/
 .env
 
 # Python
@@ -25,6 +26,19 @@ wheels/
 .installed.cfg
 *.egg
 
+# Java
+*.class
+*.jar
+*.war
+*.nar
+*.ear
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+.mvn/
+.gradle/
+
 # Virtual environments
 venv/
 ENV/
@@ -33,6 +47,12 @@ env/
 # IDEs
 .vscode/
 .idea/
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
 *.swp
 *.swo
 *~
@@ -44,3 +64,4 @@ Thumbs.db
 # Logs
 *.log
 logs/
+spring.log
