@@ -154,6 +154,11 @@ PAYLOAD_EOF
     # Mostrar estado de envío
     echo -n -e "$(get_timestamp) ${YELLOW}📤 Enviando...${NC} "
 
+    echo curl -s -X POST \
+      -H "Content-Type: application/json" \
+      -d "$PAYLOAD" \
+      "$WEBHOOK_URL" 
+
     # Enviar petición
     RESPONSE=$(curl -s -X POST \
       -H "Content-Type: application/json" \
