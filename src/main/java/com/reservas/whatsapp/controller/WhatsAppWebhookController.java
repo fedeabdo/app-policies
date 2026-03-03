@@ -84,7 +84,14 @@ public class WhatsAppWebhookController {
             log.info("Mensaje recibido - ID: {}, From: {}, Type: {}", messageId, from, messageType);
             
             // Marcar como leído
-            whatsAppService.markAsRead(messageId);
+            boolean isTestMessage = messageId == null 
+                    || messageId.startsWith("wamid.test");
+
+            if (!isTestMessage) {
+                whatsAppService.markAsRead(messageId);
+            } else {
+                log.info("Mensaje de prueba detectado, no se marcará como leído");
+            }
             
             // Procesar solo mensajes de texto
             if ("text".equals(messageType)) {
