@@ -23,8 +23,8 @@ NC='\033[0m'
 
 # Validar argumentos
 if [ -z "$1" ]; then
-    echo -e "${RED}❌ Uso: ./test-webhook-chat.sh <numero>${NC}"
-    echo -e "   Ejemplo: ./test-webhook-chat.sh 95783047"
+    echo -e "${RED}❌ Uso: ./webhook-chat.sh <numero>${NC}"
+    echo -e "   Ejemplo: ./webhook-chat.sh 95783047"
     rm -rf "$TEMP_DIR"
     exit 1
 fi
@@ -154,10 +154,10 @@ PAYLOAD_EOF
     # Mostrar estado de envío
     echo -n -e "$(get_timestamp) ${YELLOW}📤 Enviando...${NC} "
 
-    echo curl -s -X POST \
-      -H "Content-Type: application/json" \
-      -d "$PAYLOAD" \
-      "$WEBHOOK_URL" 
+    #echo curl -s -X POST \
+    #  -H "Content-Type: application/json" \
+    #  -d "$PAYLOAD" \
+    #  "$WEBHOOK_URL" 
 
     # Enviar petición
     RESPONSE=$(curl -s -X POST \
