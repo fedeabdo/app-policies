@@ -39,6 +39,8 @@ public class UserSession {
     @Column(columnDefinition = "TEXT")
     private String reservationsToCancel;
 
+    private String selectedCalendarId;
+
     private Long selectedReservationId;
 
     @UpdateTimestamp

@@ -139,6 +139,10 @@ public class ConversationService {
      * Maneja el flujo de conversación según el estado actual
      */
     private String handleConversationState(UserSession session, String message) {
+        // Si no hay calendario seleccionado, forzar selección
+        if (session.getSelectedCalendarId() == null || session.getSelectedCalendarId().isEmpty()) {
+            return handleCalendarSelection(session, message);
+        }
         return switch (session.getState()) {
             case INICIO -> handleInicio(session, message);
             case ESPERANDO_FECHA -> handleEsperandoFecha(session, message);
@@ -148,6 +152,39 @@ public class ConversationService {
             case MOSTRANDO_RESERVAS -> handleMostrandoReservas(session, message);
             case ESPERANDO_CONFIRMACION_CANCELACION -> handleConfirmacionCancelacion(session, message);
         };
+    }
+    private String handleCalendarSelection(UserSession session, String message) {
+        List<String> calendarIds = calendarService.getCalendarIds();
+        List<String> calendarNames = calendarService.getCalendarsNames();
+        String trimmedMsg = message.trim();
+
+        // Intentar seleccionar por número
+        try {
+            int idx = Integer.parseInt(trimmedMsg) - 1;
+            if (idx >= 0 && idx < calendarIds.size()) {
+                session.setSelectedCalendarId(calendarIds.get(idx));
+                sessionRepository.save(session);
+                return "✅ Calendario seleccionado: " + calendarNames.get(idx) + "\n\n" + handleInicio(session, "");
+            }
+        } catch (NumberFormatException ignored) {}
+
+        // Intentar seleccionar por nombre
+        for (int i = 0; i < calendarNames.size(); i++) {
+            if (trimmedMsg.equalsIgnoreCase(calendarNames.get(i))) {
+                session.setSelectedCalendarId(calendarIds.get(i));
+                sessionRepository.save(session);
+                return "✅ Calendario seleccionado: " + calendarNames.get(i) + "\n\n" + handleInicio(session, "");
+            }
+        }
+
+        // Mostrar opciones si no coincide
+        StringBuilder sb = new StringBuilder();
+        sb.append("Con quién te quieres atender?\n");
+        for (int i = 0; i < calendarNames.size(); i++) {
+            sb.append((i + 1)).append(") ").append(calendarNames.get(i)).append("\n");
+        }
+        sb.append("\nSelecciona número o escribe el nombre del peluquero.");
+        return sb.toString();
     }
 
     private String handleInicio(UserSession session, String message) {
@@ -176,7 +213,7 @@ public class ConversationService {
 
         // Si pide ver horarios
         if (messageLower.contains("horarios") || messageLower.contains("disponibilidad")) {
-            return mostrarHorariosDisponibles();
+            return mostrarHorariosDisponibles(session);
         }
 
         // Intentar parsear la fecha
@@ -195,7 +232,7 @@ public class ConversationService {
         }
 
         // Obtener horarios disponibles
-        List<String> horarios = calendarService.getAvailableSlots(fecha);
+        List<String> horarios = calendarService.getAvailableSlots(session.getSelectedCalendarId(), fecha);
 
         if (horarios.isEmpty()) {
             return String.format("😕 Lo siento, no hay horarios disponibles para el %s.\n\n" +
@@ -282,9 +319,10 @@ public class ConversationService {
                 LocalDateTime fechaHora = LocalDateTime.of(fecha, hora);
 
                 String eventId = calendarService.createReservation(
-                        fechaHora,
-                        session.getUserName(),
-                        session.getPhoneNumber()
+                    session.getSelectedCalendarId(),
+                    fechaHora,
+                    session.getUserName(),
+                    session.getPhoneNumber()
                 );
 
                 // Guardar en base de datos
@@ -329,21 +367,17 @@ public class ConversationService {
     /**
      * Muestra horarios disponibles para los próximos días
      */
-    private String mostrarHorariosDisponibles() {
+    private String mostrarHorariosDisponibles(UserSession session) {
         StringBuilder response = new StringBuilder("📅 Horarios disponibles:\n\n");
-
         for (int i = 0; i < 3; i++) {
             LocalDate fecha = LocalDate.now().plusDays(i);
-            List<String> horarios = calendarService.getAvailableSlots(fecha);
-
+            List<String> horarios = calendarService.getAvailableSlots(session.getSelectedCalendarId(), fecha);
             String diaTexto = switch (i) {
                 case 0 -> "Hoy";
                 case 1 -> "Mañana";
                 default -> calendarService.formatDate(fecha);
             };
-
             response.append(String.format("*%s*\n", diaTexto));
-
             if (horarios.isEmpty()) {
                 response.append("  ❌ No hay horarios disponibles\n");
             } else {
@@ -357,7 +391,6 @@ public class ConversationService {
             }
             response.append("\n");
         }
-
         response.append("Por favor, indícame la fecha que prefieres.");
         return response.toString();
     }
@@ -496,7 +529,7 @@ public class ConversationService {
                 Reservation reserva = reservaOpt.get();
 
                 // Cancelar en Google Calendar
-                calendarService.cancelReservation(reserva.getGoogleCalendarEventId());
+                calendarService.cancelReservation(session.getSelectedCalendarId(), reserva.getGoogleCalendarEventId());
 
                 // Marcar como cancelada en BD
                 reserva.setStatus(Reservation.ReservationStatus.CANCELLED);
@@ -545,7 +578,8 @@ public class ConversationService {
         StringBuilder errorLog = new StringBuilder();
 
         try {
-            List<com.google.api.services.calendar.model.Event> events = calendarService.getAllEvents();
+            // Por simplicidad, sincroniza solo el primer calendario configurado
+            List<com.google.api.services.calendar.model.Event> events = calendarService.getAllEvents(calendarService.getCalendarIds().get(0));
 
             for (com.google.api.services.calendar.model.Event event : events) {
                 try {
