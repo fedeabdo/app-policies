@@ -25,7 +25,7 @@ echo "📁 Root del proyecto: $PROJECT_ROOT"
 echo "📝 Logs en: $LOGS_FILE"
 echo ""
 echo "⏳ Abre otra terminal y ejecuta:"
-echo "   ./scripts/test-webhook-chat.sh 95783047"
+echo "   ./scripts/webhook-chat.sh 95783047"
 echo ""
 
 # Ir al root del proyecto y ejecutar Spring Boot
