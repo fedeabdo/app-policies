@@ -28,8 +28,8 @@ public class GoogleCalendarService {
     
     private final Calendar calendar;
     
-    @Value("${google.calendar.calendar-id}")
-    private String calendarId;
+    @Value("#{'${google.calendar.calendar-ids}'.split(',\\s*')}")
+    private List<String> calendarIds;
     
     @Value("${business.hours.start}")
     private int businessHoursStart;
@@ -46,7 +46,7 @@ public class GoogleCalendarService {
     /**
      * Obtiene los horarios disponibles para una fecha específica
      */
-    public List<String> getAvailableSlots(LocalDate date) {
+    public List<String> getAvailableSlots(String calendarId, LocalDate date) {
         try {
             // Obtener eventos del día
             LocalDateTime startOfDay = date.atStartOfDay();
@@ -93,7 +93,7 @@ public class GoogleCalendarService {
     /**
      * Crea una reserva en Google Calendar
      */
-    public String createReservation(LocalDateTime dateTime, String customerName, String phoneNumber) {
+    public String createReservation(String calendarId, LocalDateTime dateTime, String customerName, String phoneNumber) {
         try {
             Event event = new Event()
                     .setSummary("Reserva - " + customerName)
@@ -135,7 +135,7 @@ public class GoogleCalendarService {
     /**
      * Cancela una reserva en Google Calendar
      */
-    public void cancelReservation(String eventId) {
+    public void cancelReservation(String calendarId, String eventId) {
         try {
             calendar.events().delete(calendarId, eventId).execute();
             log.info("Evento cancelado: {}", eventId);
@@ -172,7 +172,7 @@ public class GoogleCalendarService {
     /**
      * Obtiene todos los eventos del calendario (para sincronización)
      */
-    public List<Event> getAllEvents() {
+    public List<Event> getAllEvents(String calendarId) {
         try {
             Events events = calendar.events().list(calendarId)
                     .setOrderBy("startTime")
@@ -192,5 +192,30 @@ public class GoogleCalendarService {
     public String formatDate(LocalDate date) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
         return date.format(formatter);
+    }
+
+
+    public List<String> getCalendarIds(){
+        return calendarIds;
+    }
+
+    public String getCalendarNameById(String calendarId) {
+        try {
+            String name = calendar.calendars().get(calendarId).execute().getSummary();
+            log.debug("Nombre de calendario obtenido: {} -> {}", calendarId, name);
+            return name != null ? name : "Calendario sin nombre";
+        } catch (IOException e) {
+            log.error("Error al obtener nombre del calendario {}: {}", calendarId, e.getMessage());
+            return "Calendario no disponible";
+        }
+    }
+
+
+    public List<String> getCalendarsNames() {
+        List<String> calendarNames = new ArrayList<>();
+        for (String calendarId : calendarIds) {
+            calendarNames.add(getCalendarNameById(calendarId));
+        }
+        return calendarNames;
     }
 }

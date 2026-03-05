@@ -79,7 +79,7 @@ while true; do
     read MESSAGE
 
     # Validar entrada
-    if [ "$MESSAGE" = "salir" ] || [ "$MESSAGE" = "exit" ] || [ "$MESSAGE" = "quit" ]; then
+    if [ "$MESSAGE" = "exit" ] || [ "$MESSAGE" = "quit" ]; then
         echo ""
         echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
         echo -e "${YELLOW}👋 Desconectado${NC}"
@@ -181,7 +181,7 @@ PAYLOAD_EOF
     # Esperar a que se procese el mensaje y capturar respuesta
     echo -e "$(get_timestamp) ${MAGENTA}⏳ Procesando...${NC}"
 
-    sleep 1
+    sleep 2
 
     # Obtener respuesta del bot
     BOT_RESPONSE=$(get_bot_response "$PHONE_NUMBER")
@@ -200,5 +200,4 @@ PAYLOAD_EOF
         echo -e "$(get_timestamp) ${GRAY}⏳ Sin respuesta del bot aún...${NC}"
         echo ""
     fi
-
 done
