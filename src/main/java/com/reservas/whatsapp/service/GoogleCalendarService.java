@@ -28,7 +28,7 @@ public class GoogleCalendarService {
     
     private final Calendar calendar;
     
-    @Value("#{'${google.calendar.calendar-ids}'.split(',')}")
+    @Value("#{'${google.calendar.calendar-ids}'.split(',\\s*')}")
     private List<String> calendarIds;
     
     @Value("${business.hours.start}")
@@ -201,10 +201,12 @@ public class GoogleCalendarService {
 
     public String getCalendarNameById(String calendarId) {
         try {
-            return calendar.calendars().get(calendarId).execute().getSummary();
+            String name = calendar.calendars().get(calendarId).execute().getSummary();
+            log.debug("Nombre de calendario obtenido: {} -> {}", calendarId, name);
+            return name != null ? name : "Calendario sin nombre";
         } catch (IOException e) {
-            log.error("Error al obtener nombre del calendario", e);
-            return "Calendario no encontrado";
+            log.error("Error al obtener nombre del calendario {}: {}", calendarId, e.getMessage());
+            return "Calendario no disponible";
         }
     }
 

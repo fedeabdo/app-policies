@@ -64,6 +64,7 @@ public class UserSession {
     public enum ConversationState {
         INICIO,
         ESPERANDO_FECHA,
+        ESPERANDO_PELUQUERO,
         ESPERANDO_HORARIO,
         ESPERANDO_NOMBRE,
         ESPERANDO_CONFIRMACION,

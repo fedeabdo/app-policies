@@ -30,6 +30,9 @@ public class Reservation {
     @Column(nullable = false)
     private String googleCalendarEventId;
     
+    @Column(nullable = false)
+    private String calendarId;
+    
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ReservationStatus status;
