@@ -6,6 +6,8 @@ import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.EventDateTime;
 import com.google.api.services.calendar.model.EventReminder;
 import com.google.api.services.calendar.model.Events;
+import com.reservas.whatsapp.model.Staff;
+import com.reservas.whatsapp.repository.StaffRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +22,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +30,7 @@ import java.util.List;
 public class GoogleCalendarService {
     
     private final Calendar calendar;
+    private final StaffRepository staffRepository;
     
     @Value("#{'${google.calendar.calendar-ids}'.split(',\\s*')}")
     private List<String> calendarIds;
@@ -195,14 +199,37 @@ public class GoogleCalendarService {
     }
 
 
-    public List<String> getCalendarIds(){
+    /**
+     * Obtiene los IDs de calendario de los profesionales activos.
+     * Usa la BD como fuente principal, con fallback a la configuración.
+     */
+    public List<String> getCalendarIds() {
+        List<Staff> activeStaff = staffRepository.findByActiveTrueOrderByDisplayOrderAsc();
+        if (!activeStaff.isEmpty()) {
+            return activeStaff.stream()
+                    .map(Staff::getGoogleCalendarId)
+                    .toList();
+        }
+        // Fallback a configuración (para compatibilidad)
+        log.warn("No hay profesionales en BD, usando configuración de properties");
         return calendarIds;
     }
 
+    /**
+     * Obtiene el nombre de un profesional por su calendar ID.
+     * Primero busca en la BD, luego consulta Google Calendar como fallback.
+     */
     public String getCalendarNameById(String calendarId) {
+        // Primero buscar en BD
+        Optional<Staff> staff = staffRepository.findByGoogleCalendarId(calendarId);
+        if (staff.isPresent()) {
+            return staff.get().getName();
+        }
+        
+        // Fallback: consultar Google Calendar
         try {
             String name = calendar.calendars().get(calendarId).execute().getSummary();
-            log.debug("Nombre de calendario obtenido: {} -> {}", calendarId, name);
+            log.debug("Nombre de calendario obtenido de Google: {} -> {}", calendarId, name);
             return name != null ? name : "Calendario sin nombre";
         } catch (IOException e) {
             log.error("Error al obtener nombre del calendario {}: {}", calendarId, e.getMessage());
@@ -210,12 +237,53 @@ public class GoogleCalendarService {
         }
     }
 
-
+    /**
+     * Obtiene los nombres de todos los profesionales activos.
+     * Usa la BD como fuente principal.
+     */
     public List<String> getCalendarsNames() {
+        List<Staff> activeStaff = staffRepository.findByActiveTrueOrderByDisplayOrderAsc();
+        if (!activeStaff.isEmpty()) {
+            return activeStaff.stream()
+                    .map(Staff::getName)
+                    .toList();
+        }
+        // Fallback a consultar nombres desde Google Calendar
+        log.warn("No hay profesionales en BD, consultando nombres desde Google Calendar");
         List<String> calendarNames = new ArrayList<>();
         for (String calendarId : calendarIds) {
             calendarNames.add(getCalendarNameById(calendarId));
         }
         return calendarNames;
+    }
+
+    /**
+     * Verifica disponibilidad en tiempo real justo antes de confirmar.
+     * Evita race conditions cuando el calendario se modificó externamente.
+     */
+    public boolean isSlotAvailable(String calendarId, LocalDateTime dateTime) {
+        try {
+            LocalDateTime slotEnd = dateTime.plusMinutes(reservationDuration);
+            
+            DateTime startDateTime = new DateTime(dateTime.atZone(ZoneId.of(timezone)).toInstant().toEpochMilli());
+            DateTime endDateTime = new DateTime(slotEnd.atZone(ZoneId.of(timezone)).toInstant().toEpochMilli());
+            
+            Events events = calendar.events().list(calendarId)
+                    .setTimeMin(startDateTime)
+                    .setTimeMax(endDateTime)
+                    .setOrderBy("startTime")
+                    .setSingleEvents(true)
+                    .execute();
+            
+            // Si no hay eventos en ese rango, está disponible
+            boolean available = events.getItems() == null || events.getItems().isEmpty();
+            log.debug("Verificación de disponibilidad para {} a las {}: {}", 
+                    calendarId, dateTime, available ? "DISPONIBLE" : "OCUPADO");
+            return available;
+            
+        } catch (IOException e) {
+            log.error("Error al verificar disponibilidad", e);
+            return false; // Por seguridad, asumir no disponible
+        }
     }
 }
