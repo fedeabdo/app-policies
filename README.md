@@ -10,6 +10,7 @@ Bot automatizado para gestionar reservas mediante WhatsApp Business API, integra
 - ⏰ Verificación automática de horarios disponibles
 - 🔄 Máquina de estados para conversaciones
 - 📱 Soporte para mensajes interactivos
+- 🔔 **Recordatorios automáticos** configurables (24h, 2h antes, etc.)
 - 🏗️ Arquitectura Spring Boot con buenas prácticas
 
 ## 📋 Requisitos Previos
@@ -22,11 +23,13 @@ Bot automatizado para gestionar reservas mediante WhatsApp Business API, integra
 
 ## 📖 Documentación
 
-1. **[docs/SETUP.md](SETUP.md)** - Instalación y configuración inicial
-2. **[docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Solución de problemas
-3. **[docs/DEPLOY.md](DEPLOY.md)** - Pasar a producción
-4. **[docs/SYNC_RESERVAS.md](SYNC_RESERVAS.md)** - Sincronización con Google Calendar
-5. **[docs/QUICKSTART_WSL.md](QUICKSTART_WSL.md)** - Guía rápida para desarrollo en WSL
+1. **[docs/SETUP.md](docs/SETUP.md)** - Instalación y configuración inicial
+2. **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** - Solución de problemas
+3. **[docs/DEPLOY.md](docs/DEPLOY.md)** - Pasar a producción
+4. **[docs/SYNC_RESERVAS.md](docs/SYNC_RESERVAS.md)** - Sincronización con Google Calendar
+5. **[docs/QUICKSTART_WSL.md](docs/QUICKSTART_WSL.md)** - Guía rápida para desarrollo en WSL
+6. **[docs/REMINDERS.md](docs/REMINDERS.md)** - Sistema de recordatorios automáticos
+7. **[docs/WHATSAPP_TEMPLATES.md](docs/WHATSAPP_TEMPLATES.md)** - Crear/modificar templates de Meta
 
 ## ⚡ Quick Start
 

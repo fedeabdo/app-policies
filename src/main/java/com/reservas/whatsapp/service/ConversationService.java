@@ -325,18 +325,18 @@ public class ConversationService {
             response.append("⏰ Horarios disponibles:\n");
             int idx = 1;
             for (String horario : todosLosHorarios) {
-                // Encontrar qué peluqueros tienen este horario
+                // Encontrar TODOS los peluqueros que tienen este horario
                 List<String> peluquerosDisponibles = new ArrayList<>();
-                String primerCalId = null;
+                List<String> calendarsDisponibles = new ArrayList<>();
                 for (int i = 0; i < calendarIds.size(); i++) {
                     String calId = calendarIds.get(i);
                     if (slotsPorCalendario.get(calId).contains(horario)) {
                         peluquerosDisponibles.add(calendarNames.get(i));
-                        if (primerCalId == null) primerCalId = calId;
+                        calendarsDisponibles.add(calId);
                     }
                 }
-                // Guardar con formato: "HH:MM|calendarId"
-                slotsParaGuardar.add(horario + "|" + primerCalId);
+                // Guardar con formato: "HH:MM|calId1;calId2;calId3" (todos los disponibles)
+                slotsParaGuardar.add(horario + "|" + String.join(";", calendarsDisponibles));
                 response.append(String.format("%d. %s - %s\n", idx++, horario, String.join(", ", peluquerosDisponibles)));
             }
         } else {
@@ -379,18 +379,17 @@ public class ConversationService {
 
             String slotSeleccionado = slots[seleccion];
             String horario;
-            String calendarId;
+            String calendarIds;
             
-            // Formato: "HH:MM|calendarId" (cuando es ANY) o solo "HH:MM" (peluquero específico)
+            // Formato: "HH:MM|calId1;calId2;calId3" (cuando es ANY) o solo "HH:MM" (peluquero específico)
             if (slotSeleccionado.contains("|")) {
                 String[] partes = slotSeleccionado.split("\\|");
                 horario = partes[0];
-                calendarId = partes[1];
-                // Actualizar el calendario seleccionado con el real
-                session.setSelectedCalendarId(calendarId);
+                calendarIds = partes[1]; // Puede ser "calId" o "calId1;calId2;..."
+                session.setSelectedCalendarId(calendarIds);
             } else {
                 horario = slotSeleccionado;
-                calendarId = session.getSelectedCalendarId();
+                calendarIds = session.getSelectedCalendarId();
             }
             
             session.setSelectedTime(horario);
@@ -398,7 +397,19 @@ public class ConversationService {
             sessionRepository.save(session);
 
             LocalDate fecha = session.getSelectedDate().toLocalDate();
-            String nombrePeluquero = calendarService.getCalendarNameById(calendarId);
+            
+            // Si hay múltiples calendarios, mostrar todos los peluqueros disponibles
+            String textoCalendario;
+            if (calendarIds.contains(";")) {
+                String[] calIds = calendarIds.split(";");
+                List<String> nombres = new ArrayList<>();
+                for (String calId : calIds) {
+                    nombres.add(calendarService.getCalendarNameById(calId));
+                }
+                textoCalendario = String.join(" / ", nombres);
+            } else {
+                textoCalendario = calendarService.getCalendarNameById(calendarIds);
+            }
 
             return String.format("""
                     ✅ Perfecto!
@@ -408,7 +419,7 @@ public class ConversationService {
                     ✂️ Peluquero: %s
 
                     Por favor, indícame tu nombre completo para confirmar la reserva.
-                    """, calendarService.formatDate(fecha), horario, nombrePeluquero);
+                    """, calendarService.formatDate(fecha), horario, textoCalendario);
 
         } catch (NumberFormatException e) {
             return "Por favor, escribe el número del horario que prefieres.";
@@ -421,7 +432,20 @@ public class ConversationService {
 
         LocalDate fecha = session.getSelectedDate().toLocalDate();
         String horario = session.getSelectedTime();
-        String nombrePeluquero = calendarService.getCalendarNameById(session.getSelectedCalendarId());
+        String calendarIds = session.getSelectedCalendarId();
+        
+        // Si hay múltiples calendarios, mostrar todos los peluqueros disponibles
+        String textoCalendario;
+        if (calendarIds.contains(";")) {
+            String[] calIds = calendarIds.split(";");
+            List<String> nombres = new ArrayList<>();
+            for (String calId : calIds) {
+                nombres.add(calendarService.getCalendarNameById(calId));
+            }
+            textoCalendario = String.join(" / ", nombres);
+        } else {
+            textoCalendario = calendarService.getCalendarNameById(calendarIds);
+        }
 
         return String.format("""
                 📋 *Resumen de tu reserva:*
@@ -433,7 +457,7 @@ public class ConversationService {
 
                 ¿Confirmas la reserva?
                 Escribe "sí" para confirmar o "no" para cancelar.
-                """, message.trim(), calendarService.formatDate(fecha), horario, nombrePeluquero);
+                """, message.trim(), calendarService.formatDate(fecha), horario, textoCalendario);
     }
 
     private String handleEsperandoConfirmacion(UserSession session, String message) {
@@ -447,9 +471,53 @@ public class ConversationService {
                 LocalDate fecha = session.getSelectedDate().toLocalDate();
                 LocalTime hora = LocalTime.parse(session.getSelectedTime());
                 LocalDateTime fechaHora = LocalDateTime.of(fecha, hora);
+                
+                // Obtener calendarios candidatos
+                // Formato puede ser: "calId" o "calId1;calId2;calId3" (cuando eligió "cualquier peluquero")
+                String selectedCalendarId = session.getSelectedCalendarId();
+                String[] calendarCandidates = selectedCalendarId.contains(";")
+                        ? selectedCalendarId.split(";")
+                        : new String[]{selectedCalendarId};
+                
+                // *** VALIDACIÓN EN TIEMPO REAL ***
+                // Intentar con cada calendario candidato hasta encontrar uno disponible
+                String calendarIdDisponible = null;
+                for (String calId : calendarCandidates) {
+                    if (calendarService.isSlotAvailable(calId, fechaHora)) {
+                        calendarIdDisponible = calId;
+                        log.info("Slot disponible encontrado con: {}", 
+                                calendarService.getCalendarNameById(calId));
+                        break;
+                    } else {
+                        log.warn("Slot no disponible con {}, intentando siguiente...", 
+                                calendarService.getCalendarNameById(calId));
+                    }
+                }
+                
+                // Si ningún calendario tiene disponibilidad
+                if (calendarIdDisponible == null) {
+                    log.warn("Ningún peluquero disponible para {} a las {}", fecha, hora);
+                    
+                    // Volver a mostrar horarios disponibles
+                    session.setState(UserSession.ConversationState.ESPERANDO_PELUQUERO);
+                    sessionRepository.save(session);
+                    
+                    return String.format("""
+                            😕 ¡Lo siento! El horario %s ya no está disponible con ningún peluquero.
+                            
+                            Parece que reservaron ese horario mientras conversábamos.
+                            
+                            Por favor, vuelve a seleccionar para ver los horarios actualizados:
+                            
+                            0) 🔍 Cualquier peluquero disponible
+                            %s
+                            """, session.getSelectedTime(), buildStaffOptions());
+                }
+                
+                String nombrePeluquero = calendarService.getCalendarNameById(calendarIdDisponible);
 
                 String eventId = calendarService.createReservation(
-                    session.getSelectedCalendarId(),
+                    calendarIdDisponible,
                     fechaHora,
                     session.getUserName(),
                     session.getPhoneNumber()
@@ -461,12 +529,11 @@ public class ConversationService {
                 reservation.setCustomerName(session.getUserName());
                 reservation.setReservationDateTime(fechaHora);
                 reservation.setGoogleCalendarEventId(eventId);
-                reservation.setCalendarId(session.getSelectedCalendarId());
+                reservation.setCalendarId(calendarIdDisponible);
                 reservation.setStatus(Reservation.ReservationStatus.CONFIRMED);
                 reservationRepository.save(reservation);
 
                 // Limpiar sesión
-                String nombrePeluquero = calendarService.getCalendarNameById(session.getSelectedCalendarId());
                 sessionRepository.delete(session);
 
                 return String.format("""
@@ -496,6 +563,18 @@ public class ConversationService {
         } else {
             return "Por favor, responde 'sí' para confirmar o 'no' para cancelar.";
         }
+    }
+
+    /**
+     * Construye la lista de opciones de profesionales para mostrar
+     */
+    private String buildStaffOptions() {
+        List<String> calendarNames = calendarService.getCalendarsNames();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < calendarNames.size(); i++) {
+            sb.append((i + 1)).append(") ").append(calendarNames.get(i)).append("\n");
+        }
+        return sb.toString();
     }
 
     /**
