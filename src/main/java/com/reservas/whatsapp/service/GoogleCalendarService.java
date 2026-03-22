@@ -1,18 +1,5 @@
 package com.reservas.whatsapp.service;
 
-import com.google.api.client.util.DateTime;
-import com.google.api.services.calendar.Calendar;
-import com.google.api.services.calendar.model.Event;
-import com.google.api.services.calendar.model.EventDateTime;
-import com.google.api.services.calendar.model.EventReminder;
-import com.google.api.services.calendar.model.Events;
-import com.reservas.whatsapp.model.Staff;
-import com.reservas.whatsapp.repository.StaffRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -24,118 +11,167 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import com.google.api.client.util.DateTime;
+import com.google.api.services.calendar.Calendar;
+import com.google.api.services.calendar.model.Event;
+import com.google.api.services.calendar.model.EventDateTime;
+import com.google.api.services.calendar.model.EventReminder;
+import com.google.api.services.calendar.model.Events;
+import com.reservas.whatsapp.model.Staff;
+import com.reservas.whatsapp.repository.StaffRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class GoogleCalendarService {
-    
+
     private final Calendar calendar;
     private final StaffRepository staffRepository;
-    
+
     @Value("#{'${google.calendar.calendar-ids}'.split(',\\s*')}")
     private List<String> calendarIds;
-    
+
     @Value("${business.hours.start}")
     private int businessHoursStart;
-    
+
     @Value("${business.hours.end}")
     private int businessHoursEnd;
-    
+
     @Value("${business.hours.reservation-duration-minutes}")
     private int reservationDuration;
-    
+
     @Value("${business.timezone}")
     private String timezone;
-    
+
     /**
      * Obtiene los horarios disponibles para una fecha específica
      */
     public List<String> getAvailableSlots(String calendarId, LocalDate date) {
+        return getAvailableSlots(calendarId, date, reservationDuration);
+    }
+
+    /**
+     * Obtiene los horarios disponibles para una fecha específica según duración.
+     */
+    public List<String> getAvailableSlots(String calendarId, LocalDate date, int durationMinutes) {
         try {
             // Obtener eventos del día
             LocalDateTime startOfDay = date.atStartOfDay();
             LocalDateTime endOfDay = date.atTime(23, 59, 59);
-            
+
             DateTime startDateTime = new DateTime(startOfDay.atZone(ZoneId.of(timezone)).toInstant().toEpochMilli());
             DateTime endDateTime = new DateTime(endOfDay.atZone(ZoneId.of(timezone)).toInstant().toEpochMilli());
-            
+
             Events events = calendar.events().list(calendarId)
                     .setTimeMin(startDateTime)
                     .setTimeMax(endDateTime)
                     .setOrderBy("startTime")
                     .setSingleEvents(true)
                     .execute();
-            
+
             // Generar todos los slots posibles
-            List<String> allSlots = generateAllSlots();
-            
+            List<String> allSlots = generateAllSlots(durationMinutes);
+
             // Filtrar slots ocupados
             List<String> availableSlots = new ArrayList<>(allSlots);
-            
+
+            // Si la fecha es hoy, remover horarios pasados
+            LocalDateTime now = LocalDateTime.now(ZoneId.of(timezone));
+            if (date.isEqual(now.toLocalDate())) {
+                availableSlots.removeIf(slot -> {
+                    LocalDateTime slotStart = date.atTime(LocalTime.parse(slot));
+                    return !slotStart.isAfter(now);
+                });
+            }
+
             for (Event event : events.getItems()) {
                 LocalDateTime eventStart = convertToLocalDateTime(event.getStart().getDateTime());
                 LocalDateTime eventEnd = convertToLocalDateTime(event.getEnd().getDateTime());
-                
+
                 availableSlots.removeIf(slot -> {
                     LocalTime slotTime = LocalTime.parse(slot);
                     LocalDateTime slotStart = date.atTime(slotTime);
-                    LocalDateTime slotEnd = slotStart.plusMinutes(reservationDuration);
-                    
+                    LocalDateTime slotEnd = slotStart.plusMinutes(durationMinutes);
+
                     // Verificar solapamiento
-                    return !(slotEnd.isBefore(eventStart) || slotStart.isAfter(eventEnd) || slotStart.isEqual(eventEnd));
+                    return !(slotEnd.isBefore(eventStart) || slotStart.isAfter(eventEnd)
+                            || slotStart.isEqual(eventEnd));
                 });
             }
-            
+
             return availableSlots;
-            
+
         } catch (IOException e) {
             log.error("Error al obtener horarios disponibles", e);
             return new ArrayList<>();
         }
     }
-    
+
     /**
      * Crea una reserva en Google Calendar
      */
-    public String createReservation(String calendarId, LocalDateTime dateTime, String customerName, String phoneNumber) {
+    public String createReservation(String calendarId, LocalDateTime dateTime, String customerName,
+            String phoneNumber) {
+        return createReservation(calendarId, dateTime, customerName, phoneNumber, null, reservationDuration);
+    }
+
+    /**
+     * Crea una reserva en Google Calendar con duración y servicio personalizados.
+     */
+    public String createReservation(String calendarId,
+            LocalDateTime dateTime,
+            String customerName,
+            String phoneNumber,
+            String serviceName,
+            int durationMinutes) {
         try {
+            String description = "Cliente: " + customerName + "\nTeléfono: " + phoneNumber;
+            if (serviceName != null && !serviceName.isBlank()) {
+                description += "\nServicio: " + serviceName;
+            }
+
             Event event = new Event()
                     .setSummary("Reserva - " + customerName)
-                    .setDescription("Cliente: " + customerName + "\nTeléfono: " + phoneNumber);
-            
-            LocalDateTime endDateTime = dateTime.plusMinutes(reservationDuration);
-            
+                    .setDescription(description);
+
+            LocalDateTime endDateTime = dateTime.plusMinutes(durationMinutes);
+
             EventDateTime start = new EventDateTime()
                     .setDateTime(new DateTime(dateTime.atZone(ZoneId.of(timezone)).toInstant().toEpochMilli()))
                     .setTimeZone(timezone);
-            
+
             EventDateTime end = new EventDateTime()
                     .setDateTime(new DateTime(endDateTime.atZone(ZoneId.of(timezone)).toInstant().toEpochMilli()))
                     .setTimeZone(timezone);
-            
+
             event.setStart(start);
             event.setEnd(end);
-            
+
             // Configurar recordatorios
             Event.Reminders reminders = new Event.Reminders()
                     .setUseDefault(false)
                     .setOverrides(Arrays.asList(
                             new EventReminder().setMethod("popup").setMinutes(60),
-                            new EventReminder().setMethod("popup").setMinutes(24 * 60)
-                    ));
+                            new EventReminder().setMethod("popup").setMinutes(24 * 60)));
             event.setReminders(reminders);
-            
+
             Event createdEvent = calendar.events().insert(calendarId, event).execute();
-            
+
             log.info("Evento creado: {}", createdEvent.getId());
             return createdEvent.getId();
-            
+
         } catch (IOException e) {
             log.error("Error al crear reserva en Calendar", e);
             throw new RuntimeException("Error al crear reserva", e);
         }
     }
-    
+
     /**
      * Cancela una reserva en Google Calendar
      */
@@ -148,18 +184,23 @@ public class GoogleCalendarService {
             throw new RuntimeException("Error al cancelar reserva", e);
         }
     }
-    
+
     /**
      * Genera todos los slots horarios posibles del día
      */
-    private List<String> generateAllSlots() {
+    private List<String> generateAllSlots(int durationMinutes) {
         List<String> slots = new ArrayList<>();
-        for (int hour = businessHoursStart; hour < businessHoursEnd; hour++) {
-            slots.add(String.format("%02d:00", hour));
+        LocalTime start = LocalTime.of(businessHoursStart, 0);
+        LocalTime end = LocalTime.of(businessHoursEnd, 0);
+        LocalTime current = start;
+
+        while (!current.plusMinutes(durationMinutes).isAfter(end)) {
+            slots.add(current.format(DateTimeFormatter.ofPattern("HH:mm")));
+            current = current.plusMinutes(30);
         }
         return slots;
     }
-    
+
     /**
      * Convierte DateTime de Google a LocalDateTime
      */
@@ -169,10 +210,9 @@ public class GoogleCalendarService {
         }
         return LocalDateTime.ofInstant(
                 java.time.Instant.ofEpochMilli(dateTime.getValue()),
-                ZoneId.of(timezone)
-        );
+                ZoneId.of(timezone));
     }
-    
+
     /**
      * Obtiene todos los eventos del calendario (para sincronización)
      */
@@ -197,7 +237,6 @@ public class GoogleCalendarService {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
         return date.format(formatter);
     }
-
 
     /**
      * Obtiene los IDs de calendario de los profesionales activos.
@@ -225,7 +264,7 @@ public class GoogleCalendarService {
         if (staff.isPresent()) {
             return staff.get().getName();
         }
-        
+
         // Fallback: consultar Google Calendar
         try {
             String name = calendar.calendars().get(calendarId).execute().getSummary();
@@ -262,28 +301,48 @@ public class GoogleCalendarService {
      * Evita race conditions cuando el calendario se modificó externamente.
      */
     public boolean isSlotAvailable(String calendarId, LocalDateTime dateTime) {
+        return isSlotAvailable(calendarId, dateTime, reservationDuration);
+    }
+
+    /**
+     * Verifica disponibilidad en tiempo real justo antes de confirmar para una
+     * duración específica.
+     */
+    public boolean isSlotAvailable(String calendarId, LocalDateTime dateTime, int durationMinutes) {
         try {
-            LocalDateTime slotEnd = dateTime.plusMinutes(reservationDuration);
-            
+            if (isPastDateTime(dateTime)) {
+                return false;
+            }
+
+            LocalDateTime slotEnd = dateTime.plusMinutes(durationMinutes);
+
             DateTime startDateTime = new DateTime(dateTime.atZone(ZoneId.of(timezone)).toInstant().toEpochMilli());
             DateTime endDateTime = new DateTime(slotEnd.atZone(ZoneId.of(timezone)).toInstant().toEpochMilli());
-            
+
             Events events = calendar.events().list(calendarId)
                     .setTimeMin(startDateTime)
                     .setTimeMax(endDateTime)
                     .setOrderBy("startTime")
                     .setSingleEvents(true)
                     .execute();
-            
+
             // Si no hay eventos en ese rango, está disponible
             boolean available = events.getItems() == null || events.getItems().isEmpty();
-            log.debug("Verificación de disponibilidad para {} a las {}: {}", 
+            log.debug("Verificación de disponibilidad para {} a las {}: {}",
                     calendarId, dateTime, available ? "DISPONIBLE" : "OCUPADO");
             return available;
-            
+
         } catch (IOException e) {
             log.error("Error al verificar disponibilidad", e);
             return false; // Por seguridad, asumir no disponible
         }
+    }
+
+    /**
+     * Indica si una fecha/hora está en el pasado según la zona horaria del negocio.
+     */
+    public boolean isPastDateTime(LocalDateTime dateTime) {
+        LocalDateTime now = LocalDateTime.now(ZoneId.of(timezone));
+        return !dateTime.isAfter(now);
     }
 }

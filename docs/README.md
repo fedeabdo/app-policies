@@ -13,6 +13,7 @@
 | Documento | Descripción |
 |-----------|-------------|
 | [REMINDERS.md](features/REMINDERS.md) | Sistema de recordatorios automáticos |
+| [SERVICIOS.md](features/SERVICIOS.md) | Servicios disponibles y duración por tipo |
 | [WHATSAPP_TEMPLATES.md](features/WHATSAPP_TEMPLATES.md) | Configuración de templates de WhatsApp |
 | [SYNC_RESERVAS.md](features/SYNC_RESERVAS.md) | Sincronización con Google Calendar |
 
@@ -43,6 +44,7 @@ docs/
 │   └── DEPLOY.md
 ├── features/
 │   ├── REMINDERS.md
+│   ├── SERVICIOS.md
 │   ├── WHATSAPP_TEMPLATES.md
 │   └── SYNC_RESERVAS.md
 └── pricing/

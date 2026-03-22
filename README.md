@@ -10,6 +10,7 @@ Bot automatizado para gestionar reservas mediante WhatsApp Business API, integra
 - 👥 **Multi-profesional**: soporte para múltiples calendarios/peluqueros
 - ⏰ Verificación automática de horarios disponibles
 - 🔄 Máquina de estados para conversaciones
+- 💈 **Servicios con duración dinámica**: corte/corte+barba (60 min), barba/un solo número (30 min)
 - 📱 Soporte para mensajes interactivos y templates
 - 🔔 **Recordatorios automáticos** configurables (24h, 2h, 30min antes)
 - 🏗️ Arquitectura Spring Boot con buenas prácticas
@@ -33,6 +34,7 @@ Toda la documentación está organizada en [`docs/`](docs/README.md):
 
 ### Funcionalidades
 - [REMINDERS.md](docs/features/REMINDERS.md) - Sistema de recordatorios automáticos
+- [SERVICIOS.md](docs/features/SERVICIOS.md) - Catálogo de servicios, duraciones y reglas
 - [WHATSAPP_TEMPLATES.md](docs/features/WHATSAPP_TEMPLATES.md) - Crear/modificar templates de Meta
 - [SYNC_RESERVAS.md](docs/features/SYNC_RESERVAS.md) - Sincronización con Google Calendar
 
