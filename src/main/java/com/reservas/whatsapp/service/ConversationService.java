@@ -174,17 +174,15 @@ public class ConversationService {
     private static final String PHONE_COLOR_SERVICE = "22086214";
 
     private enum ServiceOption {
-        CORTE_NORMAL("Corte normal", 60,
-                List.of("1", "corte", "corte normal", "normal")),
         CORTE_Y_BARBA("Corte y barba", 60,
-                List.of("2", "corte y barba", "corte barba")),
+                List.of("1", "corte y barba", "corte barba")),
         BARBA("Barba", 30,
-                List.of("3", "barba")),
+                List.of("2", "barba")),
         CORTE_UN_NUMERO("Corte un solo número con máquina", 30,
-                List.of("4", "un solo numero", "un solo número", "maquina", "máquina", "corte un solo numero",
+                List.of("3", "un solo numero", "un solo número", "maquina", "máquina", "corte un solo numero",
                         "corte un solo número")),
         COLOR("Color", 0,
-                List.of("5", "color", "tintura"));
+                List.of("4", "color", "tintura"));
 
         private final String label;
         private final int durationMinutes;
@@ -222,11 +220,10 @@ public class ConversationService {
 
                 ✂️ ¿Qué servicio deseas?
 
-                1) Corte normal (1 hora)
-                2) Corte y barba (1 hora)
-                3) Barba (30 min)
-                4) Corte un solo número con máquina (30 min)
-                5) Color
+                1) Corte y barba (1 hora)
+                2) Barba (30 min)
+                3) Corte un solo número con máquina (30 min)
+                4) Color
 
                 Escribe el número o el nombre del servicio.
                 """, calendarService.formatDate(fecha));
@@ -334,6 +331,14 @@ public class ConversationService {
     private String handleEsperandoServicio(UserSession session, String message) {
         ServiceOption selectedService = ServiceOption.fromMessage(message);
         LocalDate fecha = session.getSelectedDate().toLocalDate();
+        String normalizedMessage = message == null ? "" : message.trim().toLowerCase();
+
+        if (normalizedMessage.contains("solo corte") || normalizedMessage.equals("corte")
+                || normalizedMessage.contains("corte normal")) {
+            return "❌ El servicio de solo corte ya no está disponible.\n\n" +
+                    "✅ Actualmente solo ofrecemos *Corte y barba*.\n\n" +
+                    buildServiceOptionsMessage(fecha);
+        }
 
         if (selectedService == null) {
             return "No entendí el servicio seleccionado.\n\n" + buildServiceOptionsMessage(fecha);
@@ -763,7 +768,7 @@ public class ConversationService {
 
     private String getSelectedServiceLabel(UserSession session) {
         if (session == null || session.getSelectedService() == null || session.getSelectedService().isBlank()) {
-            return ServiceOption.CORTE_NORMAL.getLabel();
+            return ServiceOption.CORTE_Y_BARBA.getLabel();
         }
         return session.getSelectedService();
     }
@@ -775,12 +780,12 @@ public class ConversationService {
                 return option.getDurationMinutes();
             }
         }
-        return ServiceOption.CORTE_NORMAL.getDurationMinutes();
+        return ServiceOption.CORTE_Y_BARBA.getDurationMinutes();
     }
 
     private String getReservationServiceLabel(Reservation reservation) {
         if (reservation.getServiceType() == null || reservation.getServiceType().isBlank()) {
-            return ServiceOption.CORTE_NORMAL.getLabel();
+            return ServiceOption.CORTE_Y_BARBA.getLabel();
         }
         return reservation.getServiceType();
     }
@@ -1133,7 +1138,7 @@ public class ConversationService {
      */
     private String extractServiceFromDescription(String description) {
         if (description == null || description.isEmpty()) {
-            return ServiceOption.CORTE_NORMAL.getLabel();
+            return ServiceOption.CORTE_Y_BARBA.getLabel();
         }
 
         String[] lines = description.split("\n");
@@ -1146,7 +1151,7 @@ public class ConversationService {
             }
         }
 
-        return ServiceOption.CORTE_NORMAL.getLabel();
+        return ServiceOption.CORTE_Y_BARBA.getLabel();
     }
 
     /**
